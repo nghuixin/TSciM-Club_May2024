@@ -180,12 +180,7 @@ if __name__ == "__main__":
             plt.axis('off')  # Turn off the axis
             plt.colorbar()  # Optional: to see the scale of attribution values
             plt.show()
-            # plt.figure(figsize=(6, 6))  # Set the figure size
-            # plt.imshow(attribution[0, 0, 60 , : , :] , cmap='gray')  # Plot the slice with a grayscale colormap
-            # plt.title(f'Attributuion for ID {ID}')  # Add a title to the plot
-            # plt.axis('off')  # Turn off axis numbers and ticks
-            # plt.savefig(f'./{args.project_name}/{ID}_slice.png')  # Save the figure to a file
-            # plt.close()  # Close the plot figure to free memory            
+       
             if args.sequence=='t1':
                 if args.ensemble:
                     temp_preds = []
