@@ -4,23 +4,20 @@ import warnings
 warnings.filterwarnings("ignore")
 import matplotlib.pyplot as plt
 import re
-import argparse  # For parsing command-line arguments.
+import argparse
 import os
-import pre_process # Custom module from pre_process.py
-from monai.networks.nets import DenseNet   # Importing the DenseNet model from MONAI.
-import torch  # PyTorch library for deep learning operations
-import nibabel as nib # For handling neuroimaging data.
-import tqdm # Display progress bar
+import pre_process
+from monai.networks.nets import DenseNet  
+import torch
+import nibabel as nib
+import tqdm
+import datetime
 from collections import OrderedDict
-from captum.attr import GuidedBackprop
-
-# Script loads trained model weights, performs inference on input MRI data specified in a CSV file, 
-# and optionally evaluates the model's predictions against provided ages. 
-
-# Function to adjust the model state dictionary (useful when switching from parallel to single-device training).
+import time
+from captum.attr import IntegratedGradients
 
 def convert_state_dict(input_path):
-    # function to remove the keywork 'module' from pytorch state_dict (which occurs when model is trained using nn.DataParallel)
+    #function to remove the keywork 'module' from pytorch state_dict (which occurs when model is trained using nn.DataParallel)
     new_state_dict = OrderedDict()
     state_dict = torch.load(input_path, map_location='cpu')
     for k, v in state_dict.items():
@@ -47,13 +44,16 @@ if __name__ == "__main__":
     parser.add_argument('--sequence', type=str, default='t2')
     parser.add_argument('--csv_file', type=str, required=True)
     parser.add_argument('--project_name', type=str, required=True)
-
     args = parser.parse_args()
-    if not os.path.exists('./{}'.format(args.project_name)):
-        os.mkdir('./{}'.format(args.project_name))
-    # else: # commented out so it will always overwrite the existing folder of the same name
-    #    raise ValueError('project name {} aready used'.format(args.project_name))
-    if args.gpu:
+    project_dir = './{}'.format(args.project_name)
+ 	   
+   if not os.path.exists('./{}'.format(args.project_name)):
+   	os.mkdir('./{}'.format(args.project_name))
+     #   os.mkdir(project_dir) 
+   else:
+       	raise ValueError('project name {} aready used'.format(args.project_name))
+#	os.rename(project_name , project_name + "_old") 
+   if args.gpu:
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')     
@@ -106,86 +106,24 @@ if __name__ == "__main__":
         
     if args.pred_correction:
         assert 'Age' in df.columns, '''No column named 'Age' in csv_file, can't correct for bias in brain-age predictions'''
-
-# ------------------------------------
-# Processing loop for each MRI file listed in the CSV
-    brain_predicted_ages = [] 
+        
+    brain_predicted_ages = []
     chronological_ages = []
     IDs = []
-
     # Evaluation loop
-    with torch.no_grad(): # disable gradient calculations cos it is now in inference phase
-        # inference phase = model used for predictions not for training
-        for index, row in tqdm.tqdm(df.iterrows(), total=df.shape[0]): # iterates over each row in df from csv file
-            # tqdm used to add progress bar to monitor how many images have been processed
-            file_name = row['file_name'] 
+    with torch.no_grad():
+        for index, row in tqdm.tqdm(df.iterrows(), total=df.shape[0]):
+            file_name = row['file_name']
             ID = row['ID'] 
-            if args.return_metrics: # check if user requested to return loss function like MAE
+            if args.return_metrics:
                 age = row['Age']
-            
-            # use custom module to preprocess the MRI input
             processed_arr = pre_process.preprocess(input_path=file_name, use_gpu=args.gpu, skull_strip=args.skull_strip, register=args.sequence=='t1', project_name=args.project_name)
-            print("Pre-processing completed.")
-
             if not type(processed_arr)==np.ndarray:
-                continue # Skip current iteration if pre processing fails
-
-            mri_voxel_sample = processed_arr[0, 13, 42, 57] # Extract a specific voxel
-            mri_slice_sag = processed_arr[0, 60 , : , :] # Extract a specific slice along the axial plane
-            mri_slice_cor = processed_arr[0, : , 60 , :] 
-            mri_slice_ax = processed_arr[0, : , : , 60] 
-            tensor = torch.from_numpy(processed_arr).view(1,1,130,130,130) # converts np arr into PyTorch tensor
-            plt.figure(figsize=(6, 6))  # Set the figure size
-            plt.imshow(mri_slice_sag, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Sagittal Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_sag.png')  # Save the figure to a file
-
-            plt.close()  # Close the plot figure to free memory
-            plt.figure(figsize=(6, 6))
-            plt.imshow(mri_slice_cor, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Coronal Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_coro.png')  # Save the figure to a file
-            plt.close()  # Close the plot figure to free memory
-            plt.figure(figsize=(6, 6))
-            plt.imshow(mri_slice_ax, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Axial Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_ax.png')  # Save the figure to a file
-            plt.close()  # Close the plot figure to free memory
-
-            tensor = (tensor - tensor.mean())/tensor.std() # Normalize the tensor
-            tensor = torch.clamp(tensor,-1,5) # clamp values to remove outliers
-            # changes data type of tensor to float
+                continue
+            tensor = torch.from_numpy(processed_arr).view(1,1,130,130,130)
+            tensor = (tensor - tensor.mean())/tensor.std()
+            tensor = torch.clamp(tensor,-1,5)
             tensor = tensor.to(device=device, dtype = torch.float)
-            
-            # ---- Interpretability Method ----- 
-            gbp = GuidedBackprop(net) # captum 
-            # gbp = GuidedBackpropGrad(net) # monai             
-            attribution = gbp.attribute(tensor) # get the attribution map of the inputs using gbp
-            #np.save('attribution.npy', attribution) 
-
-            # Selecting the axial slice - ensure the indices match the dimensions of your tensor
-            attribution_np = attribution.detach().numpy()
-            attribution_slice = attribution_np[0, 0, 60, :, :]  # adjust the indices based on how your tensor is structured
-
-            # Normalize the slice for better visualization
-            normalized_slice = (attribution_slice - np.min(attribution_slice)) / (np.max(attribution_slice) - np.min(attribution_slice))
-
-            # Plotting
-            plt.figure(figsize=(6, 6))
-            plt.imshow(normalized_slice, cmap='jet')  # Using a colormap that stands out, 'jet' is one option
-            plt.title('Attribution Map - ? Slice')
-            plt.axis('off')  # Turn off the axis
-            plt.colorbar()  # Optional: to see the scale of attribution values
-            plt.show()
-            # plt.figure(figsize=(6, 6))  # Set the figure size
-            # plt.imshow(attribution[0, 0, 60 , : , :] , cmap='gray')  # Plot the slice with a grayscale colormap
-            # plt.title(f'Attributuion for ID {ID}')  # Add a title to the plot
-            # plt.axis('off')  # Turn off axis numbers and ticks
-            # plt.savefig(f'./{args.project_name}/{ID}_slice.png')  # Save the figure to a file
-            # plt.close()  # Close the plot figure to free memory            
             if args.sequence=='t1':
                 if args.ensemble:
                     temp_preds = []
@@ -206,10 +144,13 @@ if __name__ == "__main__":
             IDs.append(ID)
             
     if args.return_metrics:
+        
         pd.DataFrame({'ID':IDs,'Chronological age':chronological_ages,'Predicted_age (years)':brain_predicted_ages}).set_index('ID').to_csv('./{}_brain_age_output.csv'.format(args.project_name))
+        
         MAE = sum([np.abs(a-b) for a, b in zip(brain_predicted_ages, chronological_ages)])/len(brain_predicted_ages)
         corr_mat = np.corrcoef(chronological_ages, brain_predicted_ages)
         corr = corr_mat[0,1]
+
         fig = plt.figure(figsize=(8,8))
         ax = fig.add_subplot(111)
         ax.scatter(chronological_ages, brain_predicted_ages, alpha=0.3)
@@ -220,5 +161,6 @@ if __name__ == "__main__":
         ax.set_ylabel('Predicted age')
         ax.set_title('MAE = {:.2f} years, p = {:.2f}\n'.format(MAE, corr))
         fig.savefig('./{}/scatter.png'.format(args.project_name), facecolor='w')
+        
     else:
         pd.DataFrame({'ID':IDs,'Predicted_age (years)':brain_predicted_ages}).set_index('ID').to_csv('./{}/brain_age_output.csv'.format(args.project_name)) 
