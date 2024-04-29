@@ -112,6 +112,8 @@ if __name__ == "__main__":
     brain_predicted_ages = [] 
     chronological_ages = []
     IDs = []
+    average_attributions = []  # Initialize list to store average attributions
+
 
     # Evaluation loop
     with torch.no_grad(): # disable gradient calculations cos it is now in inference phase
@@ -130,30 +132,32 @@ if __name__ == "__main__":
             if not type(processed_arr)==np.ndarray:
                 continue # Skip current iteration if pre processing fails
 
-            mri_voxel_sample = processed_arr[0, 13, 42, 57] # Extract a specific voxel
-            mri_slice_sag = processed_arr[0, 60 , : , :] # Extract a specific slice along the axial plane
-            mri_slice_cor = processed_arr[0, : , 60 , :] 
+            #mri_voxel_sample = processed_arr[0, 13, 42, 57] # Extract a specific voxel
+            #mri_slice_sag = processed_arr[0, 60 , : , :] # Extract a specific slice along the axial plane
+            #mri_slice_cor = processed_arr[0, : , 60 , :] 
             mri_slice_ax = processed_arr[0, : , : , 60] 
-            tensor = torch.from_numpy(processed_arr).view(1,1,130,130,130) # converts np arr into PyTorch tensor
-            plt.figure(figsize=(6, 6))  # Set the figure size
-            plt.imshow(mri_slice_sag, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Sagittal Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_sag.png')  # Save the figure to a file
 
-            plt.close()  # Close the plot figure to free memory
-            plt.figure(figsize=(6, 6))
-            plt.imshow(mri_slice_cor, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Coronal Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_coro.png')  # Save the figure to a file
-            plt.close()  # Close the plot figure to free memory
-            plt.figure(figsize=(6, 6))
-            plt.imshow(mri_slice_ax, cmap='gray')  # Plot the slice with a grayscale colormap
-            plt.title(f'Axial Slice for ID {ID}')  # Add a title to the plot
-            plt.axis('off')  # Turn off axis numbers and ticks
-            plt.savefig(f'./{args.project_name}/{ID}_slice_ax.png')  # Save the figure to a file
-            plt.close()  # Close the plot figure to free memory
+            tensor = torch.from_numpy(processed_arr).view(1,1,130,130,130) # converts np arr into PyTorch tensor
+            # plt.figure(figsize=(6, 6))  # Set the figure size
+            # plt.imshow(mri_slice_sag, cmap='gray')  # Plot the slice with a grayscale colormap
+            # plt.title(f'Sagittal Slice for ID {ID}')  # Add a title to the plot
+            # plt.axis('off')  # Turn off axis numbers and ticks
+            # plt.savefig(f'./{args.project_name}/{ID}_slice_sag.png')  # Save the figure to a file
+            #plt.close()  # Close the plot figure to free memory
+            
+            # plt.figure(figsize=(6, 6))
+            # plt.imshow(mri_slice_cor, cmap='gray')  # Plot the slice with a grayscale colormap
+            # plt.title(f'Coronal Slice for ID {ID}')  # Add a title to the plot
+            # plt.axis('off')  # Turn off axis numbers and ticks
+            # plt.savefig(f'./{args.project_name}/{ID}_slice_coro.png')  # Save the figure to a file
+            # plt.close()  # Close the plot figure to free memory
+
+            #plt.figure(figsize=(6, 6))
+            #plt.imshow(mri_slice_ax, cmap='gray')  # Plot the slice with a grayscale colormap
+            #plt.title(f'Axial Slice for ID {ID}')  # Add a title to the plot
+            #plt.axis('off')  # Turn off axis numbers and ticks
+            #plt.savefig(f'./{args.project_name}/{ID}_slice_ax.png')  # Save the figure to a file
+            #plt.close()  # Close the plot figure to free memory
 
             tensor = (tensor - tensor.mean())/tensor.std() # Normalize the tensor
             tensor = torch.clamp(tensor,-1,5) # clamp values to remove outliers
@@ -162,25 +166,54 @@ if __name__ == "__main__":
             
             # ---- Interpretability Method ----- 
             gbp = GuidedBackprop(net) # captum 
-            # gbp = GuidedBackpropGrad(net) # monai             
             attribution = gbp.attribute(tensor) # get the attribution map of the inputs using gbp
-            #np.save('attribution.npy', attribution) 
+            # np.save('attribution.npy', attribution) 
 
             # Selecting the axial slice - ensure the indices match the dimensions of your tensor
-            attribution_np = attribution.detach().numpy()
-            attribution_slice = attribution_np[0, 0, 60, :, :]  # adjust the indices based on how your tensor is structured
+            attribution_np = attribution.detach().cpu().numpy()
+            # = attribution_np[0, 0, :, :, 60]  # adjust the indices based on how your tensor is structured
+            #slice_count = len(slice_numbers)  # Number of slices
+            #average_saliencies = []  # List to store average saliency values
+            attribution_slice = attribution_np[0, 0, :, :, 60]
+            average_attributions.append(attribution_slice)
 
-            # Normalize the slice for better visualization
-            normalized_slice = (attribution_slice - np.min(attribution_slice)) / (np.max(attribution_slice) - np.min(attribution_slice))
+            # # Loop through each slice index
+            # for i in slice_numbers: # implement tqdm
+            #     attribution_slice = attribution_np[0, 0, :, :, i]
+            #     average_saliency = np.mean(attribution_slice)
+            #     average_saliencies.append(average_saliency)  # Append average saliency to the list
 
             # Plotting
-            plt.figure(figsize=(6, 6))
-            plt.imshow(normalized_slice, cmap='jet')  # Using a colormap that stands out, 'jet' is one option
-            plt.title('Attribution Map - ? Slice')
-            plt.axis('off')  # Turn off the axis
-            plt.colorbar()  # Optional: to see the scale of attribution values
-            plt.show()
-       
+            #plt.figure(figsize=(10, 6))
+            # plt.plot(slice_numbers, average_saliencies, marker='o')  # Plot slice number vs. average saliency
+            # plt.xlabel('Slice Number')
+            # plt.ylabel('Average Saliency')
+            # plt.title('Average Saliency per Slice')
+            # plt.grid(True)
+
+            # # Customizing x and y ticks
+            # plt.xticks(slice_numbers)  # Set x ticks to match the slice numbers
+            # plt.yticks()  # You can set custom y ticks if needed
+
+            # plt.savefig(f'./{args.project_name}/saliency_distribution.png')  # Save the figure to a file
+            # plt.close()  # Close the plot figure to free memory
+            
+            # Normalize the slice for better visualization
+            normalized_attribution  = (attribution_slice - np.min(attribution_slice)) / (np.max(attribution_slice) - np.min(attribution_slice))
+
+            # # Display the MRI slice
+            plt.subplot(1, 2, 1)
+            plt.imshow(mri_slice_ax, cmap='gray')
+            plt.title('Original MRI Axial Slice')
+            plt.axis('off')
+
+            # Display the overlay of the attribution on the MRI slice
+
+            # plt.axis('off')
+            # plt.savefig(f'./{args.project_name}/{ID}_slice_attribution.png')  # Save the figure to a file
+            # plt.close()  # Close the plot figure to free memory
+            
+            
             if args.sequence=='t1':
                 if args.ensemble:
                     temp_preds = []
@@ -200,6 +233,14 @@ if __name__ == "__main__":
                 chronological_ages.append(np.round(row['Age'],1))
             IDs.append(ID)
             
+    mean_attribution = np.mean(average_attributions, axis=0)
+    plt.subplot(1, 2, 2)
+    plt.imshow(mri_slice_ax, cmap='gray')  # MRI slice in grayscale
+    plt.imshow(mean_attribution, cmap='jet', alpha=0.5)  # Attribution overlay with transparency
+    plt.title('Attribution Overlay on MRI Axial Slice')
+    plt.axis('off')
+    plt.savefig(f'./{args.project_name}/average_axial_attribution.png')  # Save the figure to a file
+
     if args.return_metrics:
         pd.DataFrame({'ID':IDs,'Chronological age':chronological_ages,'Predicted_age (years)':brain_predicted_ages}).set_index('ID').to_csv('./{}_brain_age_output.csv'.format(args.project_name))
         MAE = sum([np.abs(a-b) for a, b in zip(brain_predicted_ages, chronological_ages)])/len(brain_predicted_ages)
