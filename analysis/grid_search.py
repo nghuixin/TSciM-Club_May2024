@@ -6,14 +6,11 @@ from itertools import product
 
 
 def train_and_evaluate_model(model, params, train_data, val_data):
-          
-
     # Define loss and optimizer
     criterion = nn.MSELoss()
     optimizer = Adam(model.parameters(), lr=params['learning_rate'])
     
     # Create data loaders
-    
     train_loader = DataLoader(train_data, batch_size=params['batch_size'], shuffle=True)
 
     val_loader = DataLoader(val_data, batch_size=params['batch_size'])
@@ -36,9 +33,7 @@ def train_and_evaluate_model(model, params, train_data, val_data):
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 total_loss += loss.item()
-
     return total_loss / len(val_loader)
-
 
 def grid_search(model, param_grid, train_data, val_data):
     grid_list = list(product(*param_grid.values()))
