@@ -1,13 +1,44 @@
 import torch
-from torch.optim import Adam
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from itertools import product
+from torch.optim import Adam
 
 
+# Create a class representing a brain age prediction model based on 4 layers of NNs
+class BrainAgeModel(nn.Module):
+    def __init__(self, input_size, size_hidden1, size_hidden2, size_hidden3, size_hidden4):
+        super().__init__()
+        # First layer: linear transformation from input size to first hidden layer size
+        self.lin1 = nn.Linear(input_size, size_hidden1)
+        # Activation function for the first hidden layer
+        self.relu1 = nn.ReLU()
+        # Second layer: linear transformation from first to second hidden layer size
+        self.lin2 = nn.Linear(size_hidden1, size_hidden2)
+        # Activation function for the second hidden layer
+        self.relu2 = nn.ReLU()
+        # Third layer: linear transformation from second to third hidden layer size
+        self.lin3 = nn.Linear(size_hidden2, size_hidden3)
+        # Activation function for the third hidden layer
+        self.relu3 = nn.ReLU()
+        # Output layer: linear transformation from third hidden layer size to output size
+        self.lin4 = nn.Linear(size_hidden3, size_hidden4)
+
+    def forward(self, input):
+        # Define the forward pass through the network
+        x = self.lin1(input)
+        x = self.relu1(x)
+        x = self.lin2(x)
+        x = self.relu2(x)
+        x = self.lin3(x)
+        x = self.relu3(x)
+        x = self.lin4(x)
+        return x
+    
 def train_and_evaluate_model(model, params, train_data, val_data):
     # Define loss and optimizer
     criterion = nn.MSELoss()
+    
     optimizer = Adam(model.parameters(), lr=params['learning_rate'])
     
     # Create data loaders
@@ -35,15 +66,23 @@ def train_and_evaluate_model(model, params, train_data, val_data):
                 total_loss += loss.item()
     return total_loss / len(val_loader)
 
-def grid_search(model, param_grid, train_data, val_data):
+def grid_search(input_size, param_grid, train_data, val_data):
     grid_list = list(product(*param_grid.values()))
     print(grid_list)
     best_score = float('inf')
     best_params = None
+
     
     for params_tuple in grid_list:
 
         params = dict(zip(param_grid.keys(), params_tuple))
+        # Create the model with the parameters from the grid
+        model = BrainAgeModel(input_size, 
+                              size_hidden1=params['size_hidden1'],
+                              size_hidden2=params['size_hidden2'],
+                              size_hidden3=params['size_hidden3'],
+                              size_hidden4=params['size_hidden4'])
+
         score = train_and_evaluate_model(model, params, train_data, val_data)
         print(f"Tested Params: {params} Score: {score}")
 
@@ -52,5 +91,32 @@ def grid_search(model, param_grid, train_data, val_data):
             best_params = params
 
     return best_params, best_score
+
+def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
+    optimizer = torch.optim.RMSprop(model_inp.parameters(), lr=learning_rate)
+    for epoch in range(num_epochs):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for inputs, labels in train_iter:
+            # forward pass
+            outputs = model_inp(inputs)
+            # defining loss
+            loss = criterion(outputs, labels)
+            # zero the parameter gradients
+            optimizer.zero_grad()
+            # computing gradients
+            loss.backward()
+            # accumulating running loss
+            running_loss += loss.item()
+            # updated weights based on computed gradients
+            optimizer.step()
+        if epoch % 20 == 0:    
+            print('Epoch [%d]/[%d] running accumulative loss across all batches: %.3f' %
+                  (epoch + 1, num_epochs, running_loss))
+        running_loss = 0.0
+
+
+
+
+
 
 
