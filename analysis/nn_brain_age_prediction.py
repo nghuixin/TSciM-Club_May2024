@@ -68,7 +68,6 @@ def train_and_evaluate_model(model, params, train_data, val_data):
 
 def grid_search(input_size, param_grid, train_data, val_data):
     grid_list = list(product(*param_grid.values()))
-    print(grid_list)
     best_score = float('inf')
     best_params = None
 
