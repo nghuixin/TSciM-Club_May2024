@@ -35,11 +35,15 @@ class BrainAgeModel(nn.Module):
         x = self.lin4(x)
         return x
 
+
+# train model to minimize loss over multiple epochs
 def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
     optimizer = torch.optim.RMSprop(model_inp.parameters(), lr=learning_rate)
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
-        for inputs, labels in train_iter:
+        # when iterating over train_iter, we split dataset into batches of specified size
+        # each iteration yields a batch of X_train and y_train data points
+        for inputs, labels in train_iter: # train_iter is a DataLoader obj
             # forward pass
             outputs = model_inp(inputs)
             # defining loss
@@ -48,14 +52,16 @@ def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
             optimizer.zero_grad()
             # computing gradients
             loss.backward()
+            # update weights based on computed gradients
+            optimizer.step()
             # accumulating running loss
             running_loss += loss.item()
-            # updated weights based on computed gradients
-            optimizer.step()
-        if epoch % 20 == 0:    
-            print('Epoch [%d]/[%d] running accumulative loss across all batches: %.3f' %
-                  (epoch + 1, num_epochs, running_loss))
+        # Print loss after each epoch
+        print('Epoch [%d]/[%d] running accumulative loss across all batches: %.3f' %
+              (epoch + 1, num_epochs, running_loss))
+        # Resetting running loss after each epoch
         running_loss = 0.0
+
 
 
 def train_and_evaluate_model(model, params, train_data, val_data):
