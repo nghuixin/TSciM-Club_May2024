@@ -34,7 +34,30 @@ class BrainAgeModel(nn.Module):
         x = self.relu3(x)
         x = self.lin4(x)
         return x
-    
+
+def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
+    optimizer = torch.optim.RMSprop(model_inp.parameters(), lr=learning_rate)
+    for epoch in range(num_epochs):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for inputs, labels in train_iter:
+            # forward pass
+            outputs = model_inp(inputs)
+            # defining loss
+            loss = criterion(outputs, labels)
+            # zero the parameter gradients
+            optimizer.zero_grad()
+            # computing gradients
+            loss.backward()
+            # accumulating running loss
+            running_loss += loss.item()
+            # updated weights based on computed gradients
+            optimizer.step()
+        if epoch % 20 == 0:    
+            print('Epoch [%d]/[%d] running accumulative loss across all batches: %.3f' %
+                  (epoch + 1, num_epochs, running_loss))
+        running_loss = 0.0
+
+
 def train_and_evaluate_model(model, params, train_data, val_data):
     # Define loss and optimizer
     criterion = nn.MSELoss()
@@ -91,27 +114,6 @@ def grid_search(input_size, param_grid, train_data, val_data):
 
     return best_params, best_score
 
-def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
-    optimizer = torch.optim.RMSprop(model_inp.parameters(), lr=learning_rate)
-    for epoch in range(num_epochs):  # loop over the dataset multiple times
-        running_loss = 0.0
-        for inputs, labels in train_iter:
-            # forward pass
-            outputs = model_inp(inputs)
-            # defining loss
-            loss = criterion(outputs, labels)
-            # zero the parameter gradients
-            optimizer.zero_grad()
-            # computing gradients
-            loss.backward()
-            # accumulating running loss
-            running_loss += loss.item()
-            # updated weights based on computed gradients
-            optimizer.step()
-        if epoch % 20 == 0:    
-            print('Epoch [%d]/[%d] running accumulative loss across all batches: %.3f' %
-                  (epoch + 1, num_epochs, running_loss))
-        running_loss = 0.0
 
 
 
