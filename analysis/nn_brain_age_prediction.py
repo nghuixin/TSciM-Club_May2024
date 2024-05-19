@@ -79,11 +79,11 @@ def train_and_evaluate_model(model, params, train_data, val_data):
     for epoch in range(params['num_epochs']):
         model.train()
         for inputs, targets in train_loader:
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # reset gradients to zereo
+            outputs = model(inputs) 
+            loss = criterion(outputs, targets) # calculate loss
+            loss.backward() # compute gradients of the loss w/r parameters
+            optimizer.step() # use computed gradients to adjust params
 
         # Validation loop
         model.eval()
