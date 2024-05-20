@@ -15,6 +15,6 @@ Navigate to the GitHub repository and click the "Fork" button at the top-right c
 Replace <your-username> with your GitHub username.
 
 #### Setup Environment
-cd TSciM-Club_May2024   
+```cd TSciM-Club_May2024```
 ```pip install -r requirements.txt```
 
