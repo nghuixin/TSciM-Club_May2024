@@ -7,14 +7,14 @@ We implement several interpretability methods from the Captum library to examine
 ### Setup Instructions
 
 #### Forking the Repository
-Fork the repository: Navigate to the GitHub repository and click the "Fork" button at the top-right corner of the page to create a copy of the repository in your GitHub account. 
+Navigate to the GitHub repository and click the "Fork" button at the top-right corner of the page to create a copy of the repository in your GitHub account. 
 
 #### Cloning the Repository
-Clone the repository: Once you have forked the repository, you need to clone it to your local machine. Open your terminal and run the following command: 
-```git clone https://github.com/<your-username>/TSciM-Club_May2024.git```  
+ Once you have forked the repository, you need to clone it to your local machine. Open your terminal and run the following command:    
+```git clone https://github.com/<your-username>/TSciM-Club_May2024.git```    
 Replace <your-username> with your GitHub username.
 
 ### Setup Environment
-cd TSciM-Club_May2024
+cd TSciM-Club_May2024   
 ```pip install -r requirements.txt```
 
