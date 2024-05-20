@@ -62,8 +62,6 @@ def train(model_inp, num_epochs, criterion, learning_rate, train_iter):
         # Resetting running loss after each epoch
         running_loss = 0.0
 
-
-
 def train_and_evaluate_model(model, params, train_data, val_data):
     # Define loss and optimizer
     criterion = nn.MSELoss()
