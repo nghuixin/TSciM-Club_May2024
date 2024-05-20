@@ -1,5 +1,7 @@
 # Application of explainability methods to brain age prediction models
 
+This code demo is part of May 2024's [Translational Science Methods Club: Multimodal Data Integration](https://www.turing.ac.uk/events/translational-science-methods-club-multimodal-data-integration)
+
 ### Brain Age Prediction Model
 Implementation of a 4-layer neural network designed to predict brain age from synthetic input features. We use the covariance matrix to preserve the relationships between features and target variable `Age at Visit` during generation of data. 
 
@@ -19,4 +21,6 @@ Replace <your-username> with your GitHub username.
 #### Setup Environment
 ```cd TSciM-Club_May2024```   
 ```pip install -r requirements.txt```
+
+
 
